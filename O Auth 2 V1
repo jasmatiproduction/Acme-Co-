@@ -1,0 +1,63 @@
+from flask import Flask, redirect, request, session, url_for
+import requests
+import os
+
+app = Flask(__name__)
+app.secret_key = os.urandom(24)  # Secure random key for session
+
+# GitHub OAuth config
+CLIENT_ID = "YOUR_CLIENT_ID"
+CLIENT_SECRET = "YOUR_CLIENT_SECRET"
+AUTH_URL = "https://github.com/login/oauth/authorize"
+TOKEN_URL = "https://github.com/login/oauth/access_token"
+USER_API = "https://api.github.com/user"
+
+@app.route("/")
+def home():
+    if "github_user" in session:
+        user = session["github_user"]
+        return f"<h2>Logged in as {user['login']}</h2><img src='{user['avatar_url']}' width='100'><br><a href='/logout'>Logout</a>"
+    return '<a href="/login">Login with GitHub</a>'
+
+@app.route("/login")
+def login():
+    return redirect(f"{AUTH_URL}?client_id={CLIENT_ID}&scope=read:user")
+
+@app.route("/callback")
+def callback():
+    code = request.args.get("code")
+    if not code:
+        return "No code provided", 400
+
+    # Exchange code for access token
+    token_resp = requests.post(
+        TOKEN_URL,
+        headers={"Accept": "application/json"},
+        data={
+            "client_id": CLIENT_ID,
+            "client_secret": CLIENT_SECRET,
+            "code": code,
+        }
+    )
+    token_json = token_resp.json()
+    access_token = token_json.get("access_token")
+
+    if not access_token:
+        return "Failed to get access token", 400
+
+    # Get user info
+    user_resp = requests.get(
+        USER_API,
+        headers={"Authorization": f"token {access_token}"}
+    )
+    user_data = user_resp.json()
+    session["github_user"] = user_data
+    return redirect(url_for("home"))
+
+@app.route("/logout")
+def logout():
+    session.pop("github_user", None)
+    return redirect(url_for("home"))
+
+if __name__ == "__main__":
+    app.run(debug=True)
