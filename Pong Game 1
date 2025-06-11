@@ -1,5 +1,6 @@
 
 # Initialize
+# another line of code 
 pygame.init()
 
 # Constants
