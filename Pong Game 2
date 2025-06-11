@@ -1,7 +1,7 @@
 import pygame
 import sys
 import random
-
+#ADDING ADDING ADDING 
 # Constants
 WIDTH, HEIGHT = 800, 600
 WHITE = (255, 255, 255)
