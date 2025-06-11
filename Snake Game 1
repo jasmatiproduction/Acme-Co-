@@ -3,6 +3,7 @@ import sys
 import random
 
 # Initialize Pygame
+#ADDING ADDING ADDDINNGGGGGG
 pygame.init()
 
 # Constants
