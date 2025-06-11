@@ -1,0 +1,154 @@
+import pygame
+import sys
+import random
+
+# Constants
+WIDTH, HEIGHT = 800, 600
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+PADDLE_WIDTH, PADDLE_HEIGHT = 12, 100
+BALL_RADIUS = 10
+WINNING_SCORE = 10
+
+pygame.init()
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Pong: Enhanced Edition")
+clock = pygame.time.Clock()
+font = pygame.font.SysFont("Arial", 32)
+
+# Classes
+class Paddle:
+    def __init__(self, x, is_ai=False):
+        self.rect = pygame.Rect(x, HEIGHT//2 - PADDLE_HEIGHT//2, PADDLE_WIDTH, PADDLE_HEIGHT)
+        self.speed = 7
+        self.is_ai = is_ai
+
+    def move(self, up, down):
+        if self.is_ai:
+            return  # AI moves separately
+        if up and self.rect.top > 0:
+            self.rect.y -= self.speed
+        if down and self.rect.bottom < HEIGHT:
+            self.rect.y += self.speed
+
+    def ai_move(self, ball):
+        if self.rect.centery < ball.rect.centery and self.rect.bottom < HEIGHT:
+            self.rect.y += self.speed * 0.9
+        elif self.rect.centery > ball.rect.centery and self.rect.top > 0:
+            self.rect.y -= self.speed * 0.9
+
+class Ball:
+    def __init__(self):
+        self.rect = pygame.Rect(WIDTH//2, HEIGHT//2, BALL_RADIUS*2, BALL_RADIUS*2)
+        self.reset()
+
+    def reset(self):
+        self.rect.center = (WIDTH//2, HEIGHT//2)
+        angle = random.uniform(-0.5, 0.5)
+        self.dx = random.choice([-1, 1]) * (5 + random.random() * 2)
+        self.dy = angle * 7
+
+    def move(self):
+        self.rect.x += int(self.dx)
+        self.rect.y += int(self.dy)
+
+        # Bounce on top/bottom
+        if self.rect.top <= 0 or self.rect.bottom >= HEIGHT:
+            self.dy *= -1
+
+    def bounce(self, paddle):
+        offset = (self.rect.centery - paddle.rect.centery) / (PADDLE_HEIGHT / 2)
+        self.dx *= -1.1  # Increase speed slightly on every bounce
+        self.dy = offset * 6  # Add spin based on paddle hit location
+
+# Game Logic
+def draw_elements(p1, p2, ball, score1, score2):
+    screen.fill(BLACK)
+    pygame.draw.rect(screen, WHITE, p1.rect)
+    pygame.draw.rect(screen, WHITE, p2.rect)
+    pygame.draw.ellipse(screen, WHITE, ball.rect)
+    pygame.draw.aaline(screen, WHITE, (WIDTH//2, 0), (WIDTH//2, HEIGHT))
+
+    score_text = font.render(f"{score1}   {score2}", True, WHITE)
+    screen.blit(score_text, (WIDTH//2 - score_text.get_width()//2, 20))
+
+def game_over(winner):
+    msg = font.render(f"Player {winner} wins! Press SPACE to restart.", True, WHITE)
+    screen.blit(msg, (WIDTH//2 - msg.get_width()//2, HEIGHT//2))
+    pygame.display.flip()
+
+    waiting = True
+    while waiting:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                waiting = False
+
+def main():
+    p1 = Paddle(30)
+    p2 = Paddle(WIDTH - 40, is_ai=True)  # Set is_ai=False to make it 2-player
+    ball = Ball()
+
+    score1, score2 = 0, 0
+    run = True
+    up1 = down1 = up2 = down2 = False
+
+    while run:
+        clock.tick(60)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                run = False
+
+            # Player controls
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_w: up1 = True
+                if event.key == pygame.K_s: down1 = True
+                if event.key == pygame.K_UP: up2 = True
+                if event.key == pygame.K_DOWN: down2 = True
+            elif event.type == pygame.KEYUP:
+                if event.key == pygame.K_w: up1 = False
+                if event.key == pygame.K_s: down1 = False
+                if event.key == pygame.K_UP: up2 = False
+                if event.key == pygame.K_DOWN: down2 = False
+
+        # Move paddles
+        p1.move(up1, down1)
+        if not p2.is_ai:
+            p2.move(up2, down2)
+        else:
+            p2.ai_move(ball)
+
+        # Ball movement
+        ball.move()
+
+        # Collision
+        if ball.rect.colliderect(p1.rect):
+            ball.bounce(p1)
+        elif ball.rect.colliderect(p2.rect):
+            ball.bounce(p2)
+
+        # Score check
+        if ball.rect.left <= 0:
+            score2 += 1
+            ball.reset()
+        elif ball.rect.right >= WIDTH:
+            score1 += 1
+            ball.reset()
+
+        draw_elements(p1, p2, ball, score1, score2)
+        pygame.display.flip()
+
+        # Win condition
+        if score1 >= WINNING_SCORE or score2 >= WINNING_SCORE:
+            game_over(1 if score1 > score2 else 2)
+            # Reset
+            p1.rect.y = p2.rect.y = HEIGHT//2 - PADDLE_HEIGHT//2
+            ball.reset()
+            score1, score2 = 0, 0
+
+    pygame.quit()
+
+if __name__ == "__main__":
+    main()
